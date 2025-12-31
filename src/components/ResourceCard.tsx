@@ -3,7 +3,7 @@ import { A } from '@solidjs/router';
 import type { Resource, Topic } from '../lib/db/schema';
 import { parseTopicIds } from '../lib/db/schema';
 import { pluginRegistry } from '../lib/plugins';
-import { Badge } from './ui';
+import { Badge, ThumbnailImage } from './ui';
 import { ExternalLink, Clock, CheckCircle, BookOpen } from 'lucide-solid';
 
 interface ResourceCardProps {
@@ -44,11 +44,10 @@ export const ResourceCard: Component<ResourceCardProps> = (props) => {
       <div class="flex">
         {/* Thumbnail */}
         <Show when={props.resource.thumbnail}>
-          <div class="w-32 h-24 flex-shrink-0">
-            <img
+          <div class="w-24 flex-shrink-0 flex items-center justify-center bg-gray-50">
+            <ThumbnailImage
               src={props.resource.thumbnail}
-              alt=""
-              class="w-full h-full object-cover"
+              class="w-full h-auto object-contain max-h-32"
             />
           </div>
         </Show>

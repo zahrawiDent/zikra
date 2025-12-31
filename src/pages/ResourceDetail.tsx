@@ -1,9 +1,9 @@
 import { type Component, For, Show, createSignal } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
-import { useResource, useNotes } from '../lib/db/hooks';
+import { useResource, useNotes, useThumbnail } from '../lib/db/hooks';
 import { updateResourceStatus, deleteResource, createNote, deleteNote, updateNote } from '../lib/db/actions';
 import { pluginRegistry } from '../lib/plugins';
-import { Button, Input, Textarea } from '../components/ui';
+import { Button, Input, Textarea, ThumbnailInput, ConfirmDialog } from '../components/ui';
 import { TopicSelector } from '../components';
 import { updateResource } from '../lib/db/actions';
 import { parseTopicIds } from '../lib/db/schema';
@@ -42,11 +42,17 @@ export const ResourceDetail: Component = () => {
   const [editNoteContent, setEditNoteContent] = createSignal('');
   const [editNoteType, setEditNoteType] = createSignal<string>('general');
 
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
+
   const plugin = () => resource() ? pluginRegistry.get(resource()!.type) : null;
   const resourceTopicIds = () => {
     if (!resource()) return [];
     return parseTopicIds(resource()!.topicIds);
   };
+  
+  // Resolve thumbnail URL (handles local thumbnails)
+  const thumbnailUrl = useThumbnail(() => resource()?.thumbnail);
 
   // Initialize edit fields when entering edit mode
   const startEditing = () => {
@@ -100,7 +106,7 @@ export const ResourceDetail: Component = () => {
   };
 
   const handleDelete = () => {
-    if (!resource() || !confirm('Delete this resource and all its notes?')) return;
+    if (!resource()) return;
     deleteResource(resource()!.id);
     navigate('/resources');
   };
@@ -170,32 +176,20 @@ export const ResourceDetail: Component = () => {
                 placeholder="Resource description"
                 rows={3}
               />
-              <Input
-                label="Thumbnail URL"
+              <ThumbnailInput
+                label="Thumbnail"
                 value={editThumbnail()}
-                onInput={(e) => setEditThumbnail(e.currentTarget.value)}
-                placeholder="https://example.com/image.jpg"
+                onChange={setEditThumbnail}
               />
-              <Show when={editThumbnail()}>
-                <div class="mt-2">
-                  <p class="text-sm text-gray-500 mb-2">Preview:</p>
-                  <img
-                    src={editThumbnail()}
-                    alt="Thumbnail preview"
-                    class="w-48 h-36 object-cover rounded-lg border"
-                    onError={(e) => e.currentTarget.style.display = 'none'}
-                  />
-                </div>
-              </Show>
             </div>
           }>
             {/* View mode */}
             <div class="flex">
-              <Show when={resource()!.thumbnail}>
+              <Show when={thumbnailUrl()}>
                 <img
-                  src={resource()!.thumbnail}
+                  src={thumbnailUrl()}
                   alt=""
-                  class="w-48 h-36 object-cover"
+                  class="w-48 object-contain"
                 />
               </Show>
               <div class="flex-1 p-6">
@@ -240,7 +234,7 @@ export const ResourceDetail: Component = () => {
                     <button
                       type="button"
                       class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                      onClick={handleDelete}
+                      onClick={() => setShowDeleteConfirm(true)}
                     >
                       <Trash2 class="w-5 h-5" />
                     </button>
@@ -452,6 +446,18 @@ export const ResourceDetail: Component = () => {
           </Show>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm()}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Delete Resource"
+        message="Are you sure you want to delete this resource and all its notes? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </Show>
   );
 };

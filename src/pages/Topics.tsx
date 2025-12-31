@@ -2,7 +2,7 @@ import { type Component, For, Show, createSignal, createEffect } from 'solid-js'
 import { A } from '@solidjs/router';
 import { useTopics, useResources } from '../lib/db/hooks';
 import { createTopic, updateTopic, deleteTopic } from '../lib/db/actions';
-import { Button, Input, Modal } from '../components/ui';
+import { Button, Input, Modal, ConfirmDialog } from '../components/ui';
 import { Plus, Edit2, Trash2, Tag } from 'lucide-solid';
 import { parseTopicIds } from '../lib/db/schema';
 
@@ -13,6 +13,8 @@ export const Topics: Component = () => {
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [name, setName] = createSignal('');
   const [color, setColor] = createSignal('#3b82f6');
+  const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
+  const [topicToDelete, setTopicToDelete] = createSignal<string | null>(null);
 
   // Compute resource counts reactively
   const resourceCounts = () => {
@@ -59,8 +61,15 @@ export const Topics: Component = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('Delete this topic? It will be removed from all resources.')) return;
-    deleteTopic(id);
+    setTopicToDelete(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    const id = topicToDelete();
+    if (id) {
+      deleteTopic(id);
+    }
   };
 
   return (
@@ -166,6 +175,18 @@ export const Topics: Component = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm()}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Topic"
+        message="Are you sure you want to delete this topic? It will be removed from all resources."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 };

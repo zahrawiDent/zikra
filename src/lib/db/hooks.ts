@@ -1,6 +1,7 @@
 // Reactive TinyBase hooks for SolidJS
 import { createSignal, createEffect, onCleanup, Accessor, createMemo, on } from 'solid-js';
 import { store, rowToResource, rowToNote, rowToTopic, parseTopicIds, Resource, Note, Topic } from './schema';
+import { getThumbnailUrl, isLocalThumbnail } from './thumbnails';
 
 // ============ GENERIC HOOKS ============
 
@@ -198,4 +199,48 @@ export function useStats(): {
   }));
 
   return { data: stats, loading: () => false };
+}
+
+// ============ THUMBNAIL HOOK ============
+
+// Cache for resolved blob URLs to avoid recreating them
+const thumbnailCache = new Map<string, string>();
+
+export function useThumbnail(thumbnailUrl: Accessor<string | undefined>): Accessor<string | undefined> {
+  const [resolvedUrl, setResolvedUrl] = createSignal<string | undefined>(undefined);
+
+  createEffect(() => {
+    const url = thumbnailUrl();
+    if (!url) {
+      setResolvedUrl(undefined);
+      return;
+    }
+
+    // If it's not a local thumbnail, return as-is
+    if (!isLocalThumbnail(url)) {
+      setResolvedUrl(url);
+      return;
+    }
+
+    // Check cache first
+    const cached = thumbnailCache.get(url);
+    if (cached) {
+      setResolvedUrl(cached);
+      return;
+    }
+
+    // Resolve local thumbnail
+    getThumbnailUrl(url).then((resolved) => {
+      if (resolved) {
+        thumbnailCache.set(url, resolved);
+        setResolvedUrl(resolved);
+      } else {
+        setResolvedUrl(undefined);
+      }
+    }).catch(() => {
+      setResolvedUrl(undefined);
+    });
+  });
+
+  return resolvedUrl;
 }
