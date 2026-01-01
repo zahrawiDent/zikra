@@ -8,12 +8,19 @@ import { initializeStore } from './lib/db/schema';
 // Initialize plugins on app load
 initializePlugins();
 
+/**
+ * Data passed from browser extension
+ * Now simplified - just URL and optional hints
+ */
 export interface ExtensionResourceData {
-  type: string;
-  title: string;
-  description: string;
+  /** The URL to save (required) */
   url: string;
-  thumbnail: string;
+  /** Hints extracted by extension (app may override with better data) */
+  hints?: {
+    title?: string;
+    description?: string;
+    thumbnail?: string;
+  };
 }
 
 const App: Component<{ children: Element }> = (props) => {
@@ -30,23 +37,28 @@ const App: Component<{ children: Element }> = (props) => {
     setDbReady(true);
 
     // Check for extension data in URL params
-    if (searchParams.action === 'add-resource') {
+    if (searchParams.action === 'add-resource' && searchParams.url) {
       setExtensionData({
-        type: (searchParams.type as string) || 'article',
-        title: (searchParams.title as string) || '',
-        description: (searchParams.description as string) || '',
-        url: (searchParams.url as string) || '',
-        thumbnail: (searchParams.thumbnail as string) || '',
+        url: searchParams.url as string,
+        hints: {
+          title: (searchParams.hint_title as string) || undefined,
+          description: (searchParams.hint_description as string) || undefined,
+          thumbnail: (searchParams.hint_thumbnail as string) || undefined,
+        },
       });
       setShowAddModal(true);
       // Clear URL params
       setSearchParams({ 
         action: undefined, 
+        url: undefined,
+        hint_title: undefined, 
+        hint_description: undefined, 
+        hint_thumbnail: undefined,
+        // Legacy params (for backwards compatibility)
         type: undefined, 
         title: undefined, 
         description: undefined, 
-        url: undefined, 
-        thumbnail: undefined 
+        thumbnail: undefined,
       });
     }
   });

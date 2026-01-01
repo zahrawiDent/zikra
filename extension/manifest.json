@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Study Hub - Save Resource",
-  "version": "1.0.0",
-  "description": "Quickly save articles, videos, and papers to your Study Hub",
+  "name": "Zikra - Quick Save",
+  "version": "2.0.0",
+  "description": "Quickly save any page to Zikra with one click",
   "permissions": ["activeTab", "storage", "scripting"],
   "action": {
     "default_popup": "popup.html",

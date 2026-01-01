@@ -1,19 +1,25 @@
+/**
+ * Simplified Extension Popup
+ * 
+ * Minimal logic - just extracts page info and sends to the app.
+ * All detection and processing is done by the app.
+ */
+
 // DOM Elements
 const loadingEl = document.getElementById('loading');
-const formEl = document.getElementById('resourceForm');
-const successEl = document.getElementById('success');
+const readyEl = document.getElementById('ready');
 const errorEl = document.getElementById('error');
 const errorMessageEl = document.getElementById('errorMessage');
 
-const typeSelect = document.getElementById('type');
-const titleInput = document.getElementById('title');
-const descriptionInput = document.getElementById('description');
-const urlInput = document.getElementById('url');
-const thumbnailInput = document.getElementById('thumbnail');
-const thumbnailPreview = document.getElementById('thumbnailPreview');
-const thumbnailImg = document.getElementById('thumbnailImg');
+const titleEl = document.getElementById('pageTitle');
+const urlEl = document.getElementById('pageUrl');
+const thumbnailEl = document.getElementById('pageThumbnail');
 const hubUrlInput = document.getElementById('hubUrl');
 const saveBtn = document.getElementById('saveBtn');
+const quickSaveBtn = document.getElementById('quickSaveBtn');
+
+// Page data extracted from current tab
+let pageData = null;
 
 // Load saved hub URL from storage
 chrome.storage.sync.get(['hubUrl'], (result) => {
@@ -22,27 +28,14 @@ chrome.storage.sync.get(['hubUrl'], (result) => {
   }
 });
 
-// Detect resource type from URL
-function detectType(url) {
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    return 'youtube';
-  }
-  if (url.includes('arxiv.org') || url.includes('pubmed') || url.includes('doi.org') || url.includes('ncbi.nlm.nih.gov')) {
-    return 'paper';
-  }
-  if (url.includes('amazon.com/') && url.includes('/dp/')) {
-    return 'book';
-  }
-  return 'article';
-}
+// Save hub URL when changed
+hubUrlInput.addEventListener('change', () => {
+  chrome.storage.sync.set({ hubUrl: hubUrlInput.value.trim() });
+});
 
-// Extract YouTube video ID
-function getYouTubeId(url) {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  return match ? match[1] : null;
-}
-
-// Get current tab info and populate form
+/**
+ * Extract minimal page data from current tab
+ */
 async function loadPageInfo() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -54,36 +47,13 @@ async function loadPageInfo() {
     const url = tab.url || '';
     const title = tab.title || '';
     
-    // Detect type
-    const type = detectType(url);
-    typeSelect.value = type;
+    // Try to get metadata from the page
+    let metadata = { description: '', thumbnail: '' };
     
-    // Set basic info
-    titleInput.value = title;
-    urlInput.value = url;
-    
-    // Try to get thumbnail
-    let thumbnail = '';
-    if (type === 'youtube') {
-      const videoId = getYouTubeId(url);
-      if (videoId) {
-        thumbnail = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-      }
-    } else {
-      thumbnail = tab.favIconUrl || '';
-    }
-    
-    if (thumbnail) {
-      thumbnailInput.value = thumbnail;
-      showThumbnailPreview(thumbnail);
-    }
-
-    // Try to get Open Graph and meta data from page
     try {
       const [result] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
-          // Helper to get meta content by property or name
           const getMeta = (selectors) => {
             for (const selector of selectors) {
               const el = document.querySelector(selector);
@@ -92,229 +62,126 @@ async function loadPageInfo() {
             return '';
           };
 
-          // Extract Open Graph data
-          const ogData = {
-            // Title - prefer og:title over page title
-            ogTitle: getMeta([
-              'meta[property="og:title"]',
-              'meta[name="twitter:title"]'
-            ]),
-            // Description
+          return {
+            ogTitle: getMeta(['meta[property="og:title"]', 'meta[name="twitter:title"]']),
             description: getMeta([
               'meta[property="og:description"]',
               'meta[name="twitter:description"]',
               'meta[name="description"]'
             ]),
-            // Image - prefer og:image
-            ogImage: getMeta([
+            thumbnail: getMeta([
               'meta[property="og:image"]',
               'meta[property="og:image:url"]',
-              'meta[name="twitter:image"]',
-              'meta[name="twitter:image:src"]'
+              'meta[name="twitter:image"]'
             ]),
-            // Site name
-            siteName: getMeta([
-              'meta[property="og:site_name"]'
-            ]),
-            // Author
-            author: getMeta([
-              'meta[name="author"]',
-              'meta[property="article:author"]',
-              'meta[name="twitter:creator"]'
-            ]),
-            // Published date
-            publishedDate: getMeta([
-              'meta[property="article:published_time"]',
-              'meta[name="publish_date"]',
-              'meta[name="date"]'
-            ]),
-            // Type
-            ogType: getMeta([
-              'meta[property="og:type"]'
-            ])
           };
-
-          // Try to get author from structured data (JSON-LD)
-          if (!ogData.author) {
-            try {
-              const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
-              for (const script of ldScripts) {
-                const data = JSON.parse(script.textContent);
-                const items = Array.isArray(data) ? data : [data];
-                for (const item of items) {
-                  if (item.author) {
-                    ogData.author = typeof item.author === 'string' 
-                      ? item.author 
-                      : item.author.name || '';
-                    break;
-                  }
-                }
-                if (ogData.author) break;
-              }
-            } catch (e) {
-              // JSON-LD parsing failed, that's ok
-            }
-          }
-
-          return ogData;
         }
       });
       
       if (result?.result) {
-        const ogData = result.result;
-        
-        // Use OG title if available and better than page title
-        if (ogData.ogTitle && ogData.ogTitle.length > 0) {
-          titleInput.value = ogData.ogTitle;
-        }
-        
-        // Build description with metadata
-        let description = ogData.description || '';
-        const metaParts = [];
-        
-        if (ogData.siteName) {
-          metaParts.push(`Source: ${ogData.siteName}`);
-        }
-        if (ogData.author) {
-          metaParts.push(`Author: ${ogData.author}`);
-        }
-        if (ogData.publishedDate) {
-          const date = new Date(ogData.publishedDate);
-          if (!isNaN(date.getTime())) {
-            metaParts.push(`Published: ${date.toLocaleDateString()}`);
-          }
-        }
-        
-        if (metaParts.length > 0) {
-          description = description 
-            ? `${description}\n\n${metaParts.join(' • ')}`
-            : metaParts.join(' • ');
-        }
-        
-        if (description) {
-          descriptionInput.value = description;
-        }
-        
-        // Use OG image for thumbnail
-        if (ogData.ogImage) {
-          // Handle relative URLs
-          let imageUrl = ogData.ogImage;
-          if (imageUrl.startsWith('/')) {
-            const urlObj = new URL(url);
-            imageUrl = `${urlObj.origin}${imageUrl}`;
-          }
-          thumbnailInput.value = imageUrl;
-          showThumbnailPreview(imageUrl);
-        }
+        metadata = result.result;
       }
     } catch (e) {
-      // Script injection might fail on some pages, that's ok
-      console.log('Could not extract page metadata:', e);
+      // Script injection might fail on some pages (chrome://, etc.)
+      console.log('Could not extract metadata:', e);
     }
 
-    // Show form
+    // Store page data
+    pageData = {
+      url,
+      title: metadata.ogTitle || title,
+      description: metadata.description || '',
+      thumbnail: normalizeThumbnailUrl(metadata.thumbnail, url) || tab.favIconUrl || '',
+    };
+
+    // Update UI
+    titleEl.textContent = pageData.title || 'Untitled';
+    urlEl.textContent = truncateUrl(pageData.url);
+    urlEl.title = pageData.url;
+    
+    if (pageData.thumbnail) {
+      thumbnailEl.src = pageData.thumbnail;
+      thumbnailEl.classList.remove('hidden');
+    }
+
+    // Show ready state
     loadingEl.classList.add('hidden');
-    formEl.classList.remove('hidden');
+    readyEl.classList.remove('hidden');
     
   } catch (err) {
-    showError('Could not load page information: ' + err.message);
+    showError('Could not load page: ' + err.message);
   }
 }
 
-function showThumbnailPreview(url) {
-  thumbnailImg.src = url;
-  thumbnailImg.onload = () => {
-    thumbnailPreview.classList.remove('hidden');
-  };
-  thumbnailImg.onerror = () => {
-    thumbnailPreview.classList.add('hidden');
-  };
-}
-
-// Update thumbnail preview when input changes
-thumbnailInput.addEventListener('input', (e) => {
-  const url = e.target.value.trim();
-  if (url) {
-    showThumbnailPreview(url);
-  } else {
-    thumbnailPreview.classList.add('hidden');
-  }
-});
-
-// Save resource
-formEl.addEventListener('submit', async (e) => {
-  e.preventDefault();
+/**
+ * Normalize thumbnail URL (handle relative URLs)
+ */
+function normalizeThumbnailUrl(thumbnail, pageUrl) {
+  if (!thumbnail) return '';
+  if (thumbnail.startsWith('http')) return thumbnail;
   
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving...';
+  try {
+    const urlObj = new URL(pageUrl);
+    if (thumbnail.startsWith('/')) {
+      return `${urlObj.origin}${thumbnail}`;
+    }
+    return `${urlObj.origin}/${thumbnail}`;
+  } catch {
+    return thumbnail;
+  }
+}
+
+/**
+ * Truncate URL for display
+ */
+function truncateUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    const path = urlObj.pathname;
+    const display = urlObj.hostname + (path.length > 30 ? path.slice(0, 30) + '...' : path);
+    return display;
+  } catch {
+    return url.slice(0, 50) + (url.length > 50 ? '...' : '');
+  }
+}
+
+/**
+ * Open the app with the page data for full processing
+ */
+function openInApp() {
+  if (!pageData) return;
   
   const hubUrl = hubUrlInput.value.trim().replace(/\/$/, '');
   
-  // Save hub URL for future use
-  chrome.storage.sync.set({ hubUrl });
+  // Just pass the URL - let the app handle detection and fetching
+  const params = new URLSearchParams({
+    action: 'add-resource',
+    url: pageData.url,
+    // Pass pre-extracted data as hints (app can override)
+    hint_title: pageData.title,
+    hint_description: pageData.description,
+    hint_thumbnail: pageData.thumbnail,
+  });
   
-  const resource = {
-    type: typeSelect.value,
-    title: titleInput.value.trim(),
-    description: descriptionInput.value.trim(),
-    url: urlInput.value.trim(),
-    thumbnail: thumbnailInput.value.trim(),
-  };
-
-  try {
-    // Store in extension storage for the app to pick up
-    const pendingResources = await getPendingResources();
-    pendingResources.push({
-      ...resource,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    });
-    
-    await chrome.storage.local.set({ pendingResources });
-    
-    // Try to open the app with the resource data
-    const params = new URLSearchParams({
-      action: 'add-resource',
-      type: resource.type,
-      title: resource.title,
-      description: resource.description,
-      url: resource.url,
-      thumbnail: resource.thumbnail,
-    });
-    
-    // Open the app with resource data
-    chrome.tabs.create({ url: `${hubUrl}?${params.toString()}` });
-    
-    showSuccess();
-    
-  } catch (err) {
-    showError('Failed to save resource: ' + err.message);
-  }
-});
-
-async function getPendingResources() {
-  const result = await chrome.storage.local.get(['pendingResources']);
-  return result.pendingResources || [];
+  chrome.tabs.create({ url: `${hubUrl}?${params.toString()}` });
+  window.close();
 }
 
-function showSuccess() {
-  formEl.classList.add('hidden');
-  successEl.classList.remove('hidden');
-}
+/**
+ * Quick save - store data and open app
+ */
+quickSaveBtn.addEventListener('click', openInApp);
+saveBtn.addEventListener('click', openInApp);
 
+/**
+ * Show error state
+ */
 function showError(message) {
   loadingEl.classList.add('hidden');
-  formEl.classList.add('hidden');
+  readyEl.classList.add('hidden');
   errorEl.classList.remove('hidden');
   errorMessageEl.textContent = message;
 }
-
-// Open hub button
-document.getElementById('openHub').addEventListener('click', () => {
-  const hubUrl = hubUrlInput.value.trim();
-  chrome.tabs.create({ url: hubUrl });
-  window.close();
-});
 
 // Retry button
 document.getElementById('retry').addEventListener('click', () => {
