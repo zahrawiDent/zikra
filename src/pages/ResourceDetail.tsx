@@ -136,7 +136,7 @@ export const ResourceDetail: Component = () => {
 
   return (
     <Show when={resource()} fallback={<div class="p-6">Loading...</div>}>
-      <div class="p-6 space-y-6">
+      <div class="p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Back button */}
         <button
           type="button"
@@ -151,8 +151,8 @@ export const ResourceDetail: Component = () => {
         <div class="bg-white border rounded-xl overflow-hidden">
           <Show when={!isEditing()} fallback={
             /* Edit mode */
-            <div class="p-6 space-y-4">
-              <div class="flex items-center justify-between mb-2">
+            <div class="p-4 md:p-6 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                 <h2 class="text-lg font-semibold text-gray-900">Edit Resource</h2>
                 <div class="flex items-center gap-2">
                   <Button size="sm" variant="ghost" onClick={cancelEditing}>
@@ -184,17 +184,17 @@ export const ResourceDetail: Component = () => {
             </div>
           }>
             {/* View mode */}
-            <div class="flex">
+            <div class="flex flex-col sm:flex-row">
               <Show when={thumbnailUrl()}>
                 <img
                   src={thumbnailUrl()}
                   alt=""
-                  class="w-48 object-contain"
+                  class="w-full sm:w-48 h-40 sm:h-auto object-cover sm:object-contain"
                 />
               </Show>
-              <div class="flex-1 p-6">
-                <div class="flex items-start justify-between">
-                  <div>
+              <div class="flex-1 p-4 md:p-6">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex-1 min-w-0">
                     <Show when={plugin()}>
                       {(p) => {
                         const Icon = p().icon;
@@ -206,13 +206,13 @@ export const ResourceDetail: Component = () => {
                         );
                       }}
                     </Show>
-                    <h1 class="text-xl font-bold text-gray-900">{resource()!.title}</h1>
+                    <h1 class="text-lg md:text-xl font-bold text-gray-900 line-clamp-2">{resource()!.title}</h1>
                     <Show when={resource()!.description}>
-                      <p class="text-gray-600 mt-2">{resource()!.description}</p>
+                      <p class="text-gray-600 mt-2 text-sm md:text-base line-clamp-3 md:line-clamp-none">{resource()!.description}</p>
                     </Show>
                   </div>
                   
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-1 flex-shrink-0">
                     <button
                       type="button"
                       class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -242,27 +242,27 @@ export const ResourceDetail: Component = () => {
                 </div>
 
                 {/* Status buttons */}
-                <div class="flex items-center gap-2 mt-4">
+                <div class="flex flex-wrap items-center gap-2 mt-4">
                   <Button
                     size="sm"
                     variant={resource()?.status === 'to-study' ? 'primary' : 'ghost'}
                     onClick={() => handleStatusChange('to-study')}
                   >
-                    <Clock class="w-4 h-4" /> To Study
+                    <Clock class="w-4 h-4" /> <span class="hidden sm:inline">To Study</span><span class="sm:hidden">Study</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={resource()?.status === 'in-progress' ? 'primary' : 'ghost'}
                     onClick={() => handleStatusChange('in-progress')}
                   >
-                    <BookOpen class="w-4 h-4" /> In Progress
+                    <BookOpen class="w-4 h-4" /> <span class="hidden sm:inline">In Progress</span><span class="sm:hidden">Progress</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={resource()?.status === 'completed' ? 'primary' : 'ghost'}
                     onClick={() => handleStatusChange('completed')}
                   >
-                    <CircleCheck class="w-4 h-4" /> Completed
+                    <CircleCheck class="w-4 h-4" /> <span class="hidden sm:inline">Completed</span><span class="sm:hidden">Done</span>
                   </Button>
                 </div>
               </div>
@@ -271,9 +271,9 @@ export const ResourceDetail: Component = () => {
         </div>
 
         {/* Rating */}
-        <div class="bg-white border rounded-xl p-6">
+        <div class="bg-white border rounded-xl p-4 md:p-6">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900">Rating</h2>
+            <h2 class="text-base md:text-lg font-semibold text-gray-900">Rating</h2>
             <div class="flex items-center gap-1">
               <For each={[1, 2, 3, 4, 5]}>
                 {(star) => (
@@ -284,7 +284,7 @@ export const ResourceDetail: Component = () => {
                     title={`Rate ${star} star${star > 1 ? 's' : ''}`}
                   >
                     <Star
-                      class={`w-6 h-6 ${
+                      class={`w-5 h-5 md:w-6 md:h-6 ${
                         star <= (resource()?.rating || 0)
                           ? 'text-yellow-400 fill-yellow-400'
                           : 'text-gray-300'
@@ -303,7 +303,7 @@ export const ResourceDetail: Component = () => {
         </div>
 
         {/* Categories & Topics */}
-        <div class="bg-white border rounded-xl p-6">
+        <div class="bg-white border rounded-xl p-4 md:p-6">
           <ResourceCategoryDisplay
             categoryTopics={resourceCategoryTopics()}
             onChange={handleCategoryTopicsChange}
@@ -311,9 +311,9 @@ export const ResourceDetail: Component = () => {
         </div>
 
         {/* Notes */}
-        <div class="bg-white border rounded-xl p-6">
+        <div class="bg-white border rounded-xl p-4 md:p-6">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Notes</h2>
+            <h2 class="text-base md:text-lg font-semibold text-gray-900">Notes</h2>
             <Button size="sm" onClick={() => setShowAddNote(true)}>
               <Plus class="w-4 h-4" /> Add Note
             </Button>
@@ -321,13 +321,13 @@ export const ResourceDetail: Component = () => {
 
           {/* Add note form */}
           <Show when={showAddNote()}>
-            <div class="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
-              <div class="flex flex-wrap gap-2">
+            <div class="mb-4 p-3 md:p-4 bg-gray-50 rounded-lg space-y-3">
+              <div class="flex flex-wrap gap-2 overflow-x-auto pb-1">
                 <For each={noteTypes}>
                   {(type) => (
                     <button
                       type="button"
-                      class={`flex items-center gap-1 px-3 py-1 rounded-full text-sm ${
+                      class={`flex items-center gap-1 px-3 py-1 rounded-full text-sm whitespace-nowrap ${
                         noteType() === type.id
                           ? 'text-white'
                           : 'bg-white border text-gray-700 hover:bg-gray-100'

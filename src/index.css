@@ -12,6 +12,14 @@
   body {
     @apply antialiased;
   }
+
+  /* Safe area insets for mobile devices with notches */
+  :root {
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  }
 }
 
 @layer utilities {
@@ -21,4 +29,80 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Safe area utilities */
+  .safe-area-top {
+    padding-top: var(--safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: var(--safe-area-inset-bottom);
+  }
+
+  .safe-area-left {
+    padding-left: var(--safe-area-inset-left);
+  }
+
+  .safe-area-right {
+    padding-right: var(--safe-area-inset-right);
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Touch-friendly tap targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mobile card shadow */
+  .shadow-card-mobile {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
 }
+
+@layer components {
+  /* Mobile drawer animation */
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 0.2s ease-out;
+  }
+
+  /* Mobile filter pills */
+  .filter-pill {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-full text-sm whitespace-nowrap;
+  }
+
+  .filter-pill-active {
+    @apply bg-blue-50 border-blue-200 text-blue-700;
+  }
+
+  /* Mobile-friendly button */
+  .btn-mobile {
+    @apply px-4 py-3 text-base font-medium rounded-xl transition-colors active:scale-95;
+  }
+}
+

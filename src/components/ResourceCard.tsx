@@ -42,21 +42,21 @@ export const ResourceCard: Component<ResourceCardProps> = (props) => {
   return (
     <A
       href={`/resource/${props.resource.id}`}
-      class="block bg-white border rounded-xl overflow-hidden hover:shadow-md transition-shadow"
+      class="block bg-white border rounded-xl overflow-hidden hover:shadow-md transition-shadow active:bg-gray-50"
     >
-      <div class="flex">
+      <div class="flex flex-col sm:flex-row">
         {/* Thumbnail */}
         <Show when={props.resource.thumbnail}>
-          <div class="w-24 flex-shrink-0 flex items-center justify-center bg-gray-50">
+          <div class="w-full sm:w-24 h-32 sm:h-auto flex-shrink-0 flex items-center justify-center bg-gray-50">
             <ThumbnailImage
               src={props.resource.thumbnail}
-              class="w-full h-auto object-contain max-h-32"
+              class="w-full h-full object-cover sm:object-contain sm:max-h-32"
             />
           </div>
         </Show>
         
         {/* Content */}
-        <div class="flex-1 p-4 min-w-0">
+        <div class="flex-1 p-3 sm:p-4 min-w-0">
           <div class="flex items-start justify-between gap-2">
             <div class="flex-1 min-w-0">
               {/* Type badge */}
@@ -78,11 +78,11 @@ export const ResourceCard: Component<ResourceCardProps> = (props) => {
               </div>
               
               {/* Title */}
-              <h3 class="font-medium text-gray-900 truncate">{props.resource.title}</h3>
+              <h3 class="font-medium text-gray-900 line-clamp-2 sm:truncate">{props.resource.title}</h3>
               
               {/* Description */}
               <Show when={props.resource.description}>
-                <p class="text-sm text-gray-500 truncate mt-0.5">
+                <p class="text-sm text-gray-500 line-clamp-2 sm:truncate mt-0.5">
                   {props.resource.description}
                 </p>
               </Show>
@@ -95,7 +95,7 @@ export const ResourceCard: Component<ResourceCardProps> = (props) => {
           {/* Categories */}
           <Show when={resourceCategories().length > 0}>
             <div class="flex flex-wrap gap-1 mt-2">
-              <For each={resourceCategories().slice(0, 3)}>
+              <For each={resourceCategories().slice(0, 2)}>
                 {(category) => (
                   <span 
                     class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
@@ -105,20 +105,20 @@ export const ResourceCard: Component<ResourceCardProps> = (props) => {
                     }}
                   >
                     <span>{category.icon}</span>
-                    <span>{category.name}</span>
+                    <span class="hidden sm:inline">{category.name}</span>
                   </span>
                 )}
               </For>
-              <Show when={resourceCategories().length > 3}>
-                <Badge>+{resourceCategories().length - 3}</Badge>
+              <Show when={resourceCategories().length > 2}>
+                <Badge>+{resourceCategories().length - 2}</Badge>
               </Show>
             </div>
           </Show>
         </div>
         
-        {/* External link indicator */}
+        {/* External link indicator - hide on mobile */}
         <Show when={props.resource.url}>
-          <div class="flex items-center pr-4">
+          <div class="hidden sm:flex items-center pr-4">
             <ExternalLink class="w-4 h-4 text-gray-400" />
           </div>
         </Show>

@@ -557,12 +557,12 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
           </Show>
 
           {/* Resource preview card */}
-          <div class="flex gap-4 p-4 bg-gray-50 rounded-xl">
+          <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-xl">
             <Show when={fetchedData()?.thumbnail}>
               <img
                 src={fetchedData()!.thumbnail}
                 alt=""
-                class="w-24 h-32 object-cover rounded-lg shadow-sm"
+                class="w-full sm:w-24 h-40 sm:h-32 object-cover rounded-lg shadow-sm"
               />
             </Show>
             <div class="flex-1 min-w-0">
@@ -627,9 +627,9 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
             <p class="text-sm text-red-600">{error()}</p>
           </Show>
 
-          <div class="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="secondary" onClick={props.onClose}>Cancel</Button>
-            <Button onClick={handleSave} disabled={loading()}>
+          <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t">
+            <Button variant="secondary" onClick={props.onClose} class="w-full sm:w-auto">Cancel</Button>
+            <Button onClick={handleSave} disabled={loading()} class="w-full sm:w-auto">
               <Check class="w-4 h-4" /> Save Resource
             </Button>
           </div>

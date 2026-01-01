@@ -72,19 +72,19 @@ export const Resources: Component = () => {
   });
 
   return (
-    <div class="p-6 space-y-6">
+    <div class="p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
       <div>
         <Show 
           when={breadcrumb().length > 0}
-          fallback={<h1 class="text-2xl font-bold text-gray-900">All Resources</h1>}
+          fallback={<h1 class="text-xl md:text-2xl font-bold text-gray-900">All Resources</h1>}
         >
-          <div class="flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <div class="flex items-center gap-2 text-xl md:text-2xl font-bold text-gray-900 flex-wrap">
             <For each={breadcrumb()}>
               {(part, index) => (
                 <>
                   <Show when={index() > 0}>
-                    <ChevronRight class="w-5 h-5 text-gray-400" />
+                    <ChevronRight class="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
                   </Show>
                   <Show 
                     when={part.onClick}
@@ -103,100 +103,102 @@ export const Resources: Component = () => {
             </For>
           </div>
         </Show>
-        <p class="text-gray-600 mt-1">
+        <p class="text-gray-600 mt-1 text-sm md:text-base">
           {resources()?.length || 0} resources
           {getParam('status') ? ` • ${getParam('status')!.replace('-', ' ')}` : ''}
         </p>
       </div>
 
       {/* Search & Filters */}
-      <div class="flex flex-wrap items-center gap-4">
-        <div class="relative flex-1 min-w-[200px] max-w-md">
+      <div class="space-y-3 md:space-y-0 md:flex md:flex-wrap md:items-center md:gap-4">
+        <div class="relative flex-1 min-w-0 md:min-w-[200px] md:max-w-md">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
             type="search"
             placeholder="Search resources..."
             value={getParam('q') || ''}
             onInput={(e) => setSearchParams({ q: e.currentTarget.value || undefined })}
-            class="pl-10"
+            class="pl-10 w-full"
           />
         </div>
         
-        {/* Category filter */}
-        <select
-          class="px-3 py-2 border rounded-lg text-sm bg-white"
-          value={getParam('category') || ''}
-          onChange={(e) => {
-            const categoryId = e.currentTarget.value || undefined;
-            // Clear topic when category changes
-            setSearchParams({ category: categoryId, topic: undefined });
-          }}
-        >
-          <option value="">All categories</option>
-          <For each={categories()}>
-            {(category) => (
-              <option value={category.id}>
-                {category.icon} {category.name}
-              </option>
-            )}
-          </For>
-        </select>
-
-        {/* Topic filter (only show if category selected) */}
-        <Show when={getParam('category') && topics() && topics()!.length > 0}>
+        {/* Filters - horizontal scroll on mobile */}
+        <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 md:pb-0 md:flex-wrap">
+          {/* Category filter */}
           <select
-            class="px-3 py-2 border rounded-lg text-sm bg-white"
-            value={getParam('topic') || ''}
-            onChange={(e) => setSearchParams({ topic: e.currentTarget.value || undefined })}
+            class="px-3 py-2 border rounded-lg text-sm bg-white flex-shrink-0"
+            value={getParam('category') || ''}
+            onChange={(e) => {
+              const categoryId = e.currentTarget.value || undefined;
+              setSearchParams({ category: categoryId, topic: undefined });
+            }}
           >
-            <option value="">All topics</option>
-            <For each={topics()}>
-              {(topic) => <option value={topic.id}>{topic.name}</option>}
+            <option value="">All categories</option>
+            <For each={categories()}>
+              {(category) => (
+                <option value={category.id}>
+                  {category.icon} {category.name}
+                </option>
+              )}
             </For>
           </select>
-        </Show>
-        
-        {/* Type filter */}
-        <select
-          class="px-3 py-2 border rounded-lg text-sm bg-white"
-          value={getParam('type') || ''}
-          onChange={(e) => setSearchParams({ type: e.currentTarget.value || undefined })}
-        >
-          <option value="">All types</option>
-          <For each={plugins}>
-            {(plugin) => <option value={plugin.id}>{plugin.name}</option>}
-          </For>
-        </select>
 
-        {/* Status filter */}
-        <select
-          class="px-3 py-2 border rounded-lg text-sm bg-white"
-          value={getParam('status') || ''}
-          onChange={(e) => setSearchParams({ status: e.currentTarget.value || undefined })}
-        >
-          <option value="">All statuses</option>
-          <option value="to-study">To Study</option>
-          <option value="in-progress">In Progress</option>
-          <option value="completed">Completed</option>
-        </select>
-
-        <Show when={hasFilters()}>
-          <button
-            type="button"
-            class="text-sm text-gray-500 hover:text-gray-700"
-            onClick={clearFilters}
+          {/* Topic filter (only show if category selected) */}
+          <Show when={getParam('category') && topics() && topics()!.length > 0}>
+            <select
+              class="px-3 py-2 border rounded-lg text-sm bg-white flex-shrink-0"
+              value={getParam('topic') || ''}
+              onChange={(e) => setSearchParams({ topic: e.currentTarget.value || undefined })}
+            >
+              <option value="">All topics</option>
+              <For each={topics()}>
+                {(topic) => <option value={topic.id}>{topic.name}</option>}
+              </For>
+            </select>
+          </Show>
+          
+          {/* Type filter */}
+          <select
+            class="px-3 py-2 border rounded-lg text-sm bg-white flex-shrink-0"
+            value={getParam('type') || ''}
+            onChange={(e) => setSearchParams({ type: e.currentTarget.value || undefined })}
           >
-            Clear filters
-          </button>
-        </Show>
+            <option value="">All types</option>
+            <For each={plugins}>
+              {(plugin) => <option value={plugin.id}>{plugin.name}</option>}
+            </For>
+          </select>
+
+          {/* Status filter */}
+          <select
+            class="px-3 py-2 border rounded-lg text-sm bg-white flex-shrink-0"
+            value={getParam('status') || ''}
+            onChange={(e) => setSearchParams({ status: e.currentTarget.value || undefined })}
+          >
+            <option value="">All statuses</option>
+            <option value="to-study">To Study</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+
+          <Show when={hasFilters()}>
+            <button
+              type="button"
+              class="text-sm text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </button>
+          </Show>
+        </div>
       </div>
 
       {/* Resources List */}
       <Show
         when={resources() && resources()!.length > 0}
         fallback={
-          <div class="text-center py-12 bg-white border rounded-xl">
-            <SlidersHorizontal class="w-12 h-12 text-gray-300 mx-auto" />
+          <div class="text-center py-8 md:py-12 bg-white border rounded-xl">
+            <SlidersHorizontal class="w-10 h-10 md:w-12 md:h-12 text-gray-300 mx-auto" />
             <p class="text-gray-500 mt-2">No resources found</p>
             <Show when={hasFilters()}>
               <button

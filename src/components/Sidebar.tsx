@@ -8,6 +8,7 @@ import {
 
 interface SidebarProps {
   onAddResource: () => void;
+  mobile?: boolean;
 }
 
 export const Sidebar: Component<SidebarProps> = (props) => {
@@ -45,9 +46,9 @@ export const Sidebar: Component<SidebarProps> = (props) => {
   ];
 
   return (
-    <aside class="w-64 bg-gray-50 border-r h-screen flex flex-col">
+    <aside class={`${props.mobile ? 'w-full h-full' : 'w-64'} bg-gray-50 border-r h-screen flex flex-col`}>
       {/* Logo */}
-      <div class="p-4 border-b">
+      <div class={`p-4 border-b ${props.mobile ? 'pt-6' : ''}`}>
         <h1 class="text-xl font-bold text-gray-900">🦷 DentStudy</h1>
         <p class="text-xs text-gray-500 mt-0.5">Your dentistry study hub</p>
       </div>

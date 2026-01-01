@@ -1,6 +1,7 @@
 import { Suspense, type Component, createSignal, onMount, Show } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import { Sidebar, AddResourceModal } from './components';
+import { MobileBottomNav, MobileDrawer, FloatingActionButton } from './components/MobileNav';
 import { initializePlugins } from './lib/plugins';
 import { seedDefaultCategories } from './lib/db/actions';
 import { initializeStore } from './lib/db/schema';
@@ -28,6 +29,7 @@ const App: Component<{ children: Element }> = (props) => {
   const [showAddModal, setShowAddModal] = createSignal(false);
   const [dbReady, setDbReady] = createSignal(false);
   const [extensionData, setExtensionData] = createSignal<ExtensionResourceData | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = createSignal(false);
 
   onMount(async () => {
     // Initialize TinyBase store with IndexedDB persistence
@@ -71,13 +73,34 @@ const App: Component<{ children: Element }> = (props) => {
   return (
     <Show when={dbReady()} fallback={<div class="flex h-screen items-center justify-center">Initializing...</div>}>
       <div class="flex h-screen bg-gray-100">
-        <Sidebar onAddResource={() => setShowAddModal(true)} />
+        {/* Desktop sidebar - hidden on mobile */}
+        <div class="hidden md:block">
+          <Sidebar onAddResource={() => setShowAddModal(true)} />
+        </div>
         
-        <main class="flex-1 overflow-y-auto">
+        {/* Mobile drawer */}
+        <MobileDrawer open={mobileMenuOpen()} onClose={() => setMobileMenuOpen(false)}>
+          <Sidebar 
+            onAddResource={() => {
+              setMobileMenuOpen(false);
+              setShowAddModal(true);
+            }} 
+            mobile 
+          />
+        </MobileDrawer>
+        
+        <main class="flex-1 overflow-y-auto pb-20 md:pb-0">
           <Suspense fallback={<div class="p-6">Loading...</div>}>
             {props.children}
           </Suspense>
         </main>
+
+        {/* Mobile bottom nav and FAB */}
+        <MobileBottomNav 
+          onAddResource={() => setShowAddModal(true)}
+          onMenuOpen={() => setMobileMenuOpen(true)}
+        />
+        <FloatingActionButton onClick={() => setShowAddModal(true)} />
 
         <AddResourceModal
           open={showAddModal()}
