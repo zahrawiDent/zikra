@@ -19,6 +19,10 @@ export const routes: RouteDefinition[] = [
     component: lazy(() => import('./pages/Categories')),
   },
   {
+    path: '/share',
+    component: lazy(() => import('./pages/ShareHandler')),
+  },
+  {
     path: '**',
     component: lazy(() => import('./errors/404')),
   },

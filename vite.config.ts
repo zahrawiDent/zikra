@@ -36,6 +36,16 @@ export default defineConfig({
             purpose: "maskable",
           },
         ],
+        // Share Target API - allows sharing content to this app
+        share_target: {
+          action: "/zikra/share",
+          method: "GET",
+          params: {
+            title: "title",
+            text: "text",
+            url: "url",
+          },
+        },
       },
       workbox: {
         // Cache all assets for offline use
