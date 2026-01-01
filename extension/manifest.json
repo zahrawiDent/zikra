@@ -3,7 +3,7 @@
   "name": "Study Hub - Save Resource",
   "version": "1.0.0",
   "description": "Quickly save articles, videos, and papers to your Study Hub",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab", "storage", "scripting"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

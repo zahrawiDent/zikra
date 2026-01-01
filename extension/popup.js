@@ -78,28 +78,133 @@ async function loadPageInfo() {
       showThumbnailPreview(thumbnail);
     }
 
-    // Try to get meta description from page
+    // Try to get Open Graph and meta data from page
     try {
       const [result] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
-          const metaDesc = document.querySelector('meta[name="description"]') ||
-                          document.querySelector('meta[property="og:description"]');
-          const ogImage = document.querySelector('meta[property="og:image"]');
-          return {
-            description: metaDesc?.content || '',
-            ogImage: ogImage?.content || ''
+          // Helper to get meta content by property or name
+          const getMeta = (selectors) => {
+            for (const selector of selectors) {
+              const el = document.querySelector(selector);
+              if (el?.content) return el.content;
+            }
+            return '';
           };
+
+          // Extract Open Graph data
+          const ogData = {
+            // Title - prefer og:title over page title
+            ogTitle: getMeta([
+              'meta[property="og:title"]',
+              'meta[name="twitter:title"]'
+            ]),
+            // Description
+            description: getMeta([
+              'meta[property="og:description"]',
+              'meta[name="twitter:description"]',
+              'meta[name="description"]'
+            ]),
+            // Image - prefer og:image
+            ogImage: getMeta([
+              'meta[property="og:image"]',
+              'meta[property="og:image:url"]',
+              'meta[name="twitter:image"]',
+              'meta[name="twitter:image:src"]'
+            ]),
+            // Site name
+            siteName: getMeta([
+              'meta[property="og:site_name"]'
+            ]),
+            // Author
+            author: getMeta([
+              'meta[name="author"]',
+              'meta[property="article:author"]',
+              'meta[name="twitter:creator"]'
+            ]),
+            // Published date
+            publishedDate: getMeta([
+              'meta[property="article:published_time"]',
+              'meta[name="publish_date"]',
+              'meta[name="date"]'
+            ]),
+            // Type
+            ogType: getMeta([
+              'meta[property="og:type"]'
+            ])
+          };
+
+          // Try to get author from structured data (JSON-LD)
+          if (!ogData.author) {
+            try {
+              const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
+              for (const script of ldScripts) {
+                const data = JSON.parse(script.textContent);
+                const items = Array.isArray(data) ? data : [data];
+                for (const item of items) {
+                  if (item.author) {
+                    ogData.author = typeof item.author === 'string' 
+                      ? item.author 
+                      : item.author.name || '';
+                    break;
+                  }
+                }
+                if (ogData.author) break;
+              }
+            } catch (e) {
+              // JSON-LD parsing failed, that's ok
+            }
+          }
+
+          return ogData;
         }
       });
       
       if (result?.result) {
-        if (result.result.description) {
-          descriptionInput.value = result.result.description;
+        const ogData = result.result;
+        
+        // Use OG title if available and better than page title
+        if (ogData.ogTitle && ogData.ogTitle.length > 0) {
+          titleInput.value = ogData.ogTitle;
         }
-        if (result.result.ogImage && !thumbnailInput.value) {
-          thumbnailInput.value = result.result.ogImage;
-          showThumbnailPreview(result.result.ogImage);
+        
+        // Build description with metadata
+        let description = ogData.description || '';
+        const metaParts = [];
+        
+        if (ogData.siteName) {
+          metaParts.push(`Source: ${ogData.siteName}`);
+        }
+        if (ogData.author) {
+          metaParts.push(`Author: ${ogData.author}`);
+        }
+        if (ogData.publishedDate) {
+          const date = new Date(ogData.publishedDate);
+          if (!isNaN(date.getTime())) {
+            metaParts.push(`Published: ${date.toLocaleDateString()}`);
+          }
+        }
+        
+        if (metaParts.length > 0) {
+          description = description 
+            ? `${description}\n\n${metaParts.join(' • ')}`
+            : metaParts.join(' • ');
+        }
+        
+        if (description) {
+          descriptionInput.value = description;
+        }
+        
+        // Use OG image for thumbnail
+        if (ogData.ogImage) {
+          // Handle relative URLs
+          let imageUrl = ogData.ogImage;
+          if (imageUrl.startsWith('/')) {
+            const urlObj = new URL(url);
+            imageUrl = `${urlObj.origin}${imageUrl}`;
+          }
+          thumbnailInput.value = imageUrl;
+          showThumbnailPreview(imageUrl);
         }
       }
     } catch (e) {
