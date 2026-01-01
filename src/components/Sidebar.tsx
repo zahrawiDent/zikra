@@ -5,6 +5,7 @@ import {
   Home, BookOpen, FolderOpen, Settings, Plus, 
   Clock, CheckCircle, Loader, ChevronDown, ChevronRight 
 } from 'lucide-solid';
+import { InstallButton } from './InstallButton';
 
 interface SidebarProps {
   onAddResource: () => void;
@@ -212,8 +213,9 @@ export const Sidebar: Component<SidebarProps> = (props) => {
         </Show>
       </nav>
 
-      {/* Settings */}
-      <div class="p-3 border-t">
+      {/* Settings & Install */}
+      <div class="p-3 border-t space-y-1">
+        <InstallButton />
         <A
           href="/settings"
           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-200"

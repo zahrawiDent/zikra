@@ -68,3 +68,8 @@ src/
 │   └── plugins/     # Resource type plugins
 └── pages/           # Route pages
 ```
+
+ImageMagick is available. Let me create the PWA icons:
+
+
+cd /media/Maind/zahrawi/dentistry/zikra-shelf/public && convert -background none -resize 192x192 book-shelf.svg pwa-192x192.png && convert -background none -resize 512x512 book-shelf.svg pwa-512x512.png && ls -la pwa*.png

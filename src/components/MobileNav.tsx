@@ -9,7 +9,8 @@
 
 import { type Component, createSignal, Show, For } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
-import { Home, BookOpen, FolderOpen, Menu, Plus, X } from 'lucide-solid';
+import { Home, BookOpen, FolderOpen, Menu, Plus, X, Download } from 'lucide-solid';
+import { usePWAInstall } from '../lib/hooks';
 
 interface MobileNavProps {
   onAddResource: () => void;
@@ -71,15 +72,33 @@ export const MobileBottomNav: Component<MobileNavProps> = (props) => {
  * Floating Action Button for adding resources
  */
 export const FloatingActionButton: Component<{ onClick: () => void }> = (props) => {
+  const { canInstall, install } = usePWAInstall();
+
   return (
-    <button
-      type="button"
-      class="fixed right-4 bottom-20 md:hidden z-50 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 active:bg-blue-800 transition-all flex items-center justify-center"
-      onClick={props.onClick}
-      aria-label="Add Resource"
-    >
-      <Plus class="w-6 h-6" />
-    </button>
+    <>
+      {/* Install prompt - shows above FAB when installable */}
+      <Show when={canInstall()}>
+        <button
+          type="button"
+          class="fixed right-4 bottom-36 md:hidden z-50 flex items-center gap-2 px-4 py-2.5 bg-white text-blue-600 border border-blue-200 rounded-full shadow-lg hover:bg-blue-50 active:bg-blue-100 transition-all"
+          onClick={install}
+          aria-label="Install App"
+        >
+          <Download class="w-4 h-4" />
+          <span class="text-sm font-medium">Install</span>
+        </button>
+      </Show>
+      
+      {/* Add Resource FAB */}
+      <button
+        type="button"
+        class="fixed right-4 bottom-20 md:hidden z-50 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 active:bg-blue-800 transition-all flex items-center justify-center"
+        onClick={props.onClick}
+        aria-label="Add Resource"
+      >
+        <Plus class="w-6 h-6" />
+      </button>
+    </>
   );
 };
 
@@ -128,6 +147,8 @@ interface MobileHeaderProps {
 }
 
 export const MobileHeader: Component<MobileHeaderProps> = (props) => {
+  const { canInstall, install } = usePWAInstall();
+
   return (
     <header class="sticky top-0 bg-white border-b z-30 md:hidden safe-area-top">
       <div class="flex items-center justify-between h-14 px-4">
@@ -146,9 +167,23 @@ export const MobileHeader: Component<MobileHeaderProps> = (props) => {
             <span class="text-lg font-bold text-gray-900">🦷 DentStudy</span>
           </Show>
         </div>
-        <Show when={props.rightContent}>
-          {props.rightContent}
-        </Show>
+        <div class="flex items-center gap-2">
+          {/* Install button - only shows if app can be installed */}
+          <Show when={canInstall()}>
+            <button
+              type="button"
+              onClick={install}
+              class="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
+              title="Install Zikra App"
+            >
+              <Download class="w-4 h-4" />
+              <span>Install</span>
+            </button>
+          </Show>
+          <Show when={props.rightContent}>
+            {props.rightContent}
+          </Show>
+        </div>
       </div>
     </header>
   );

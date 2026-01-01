@@ -6,3 +6,4 @@ export { ResourceCategoryDisplay } from './ResourceCategoryDisplay';
 export { DetectionBadges, DetectionIndicator } from './DetectionBadges';
 export { AutoDetectInput } from './AutoDetectInput';
 export { MobileBottomNav, MobileDrawer, FloatingActionButton, MobileHeader } from './MobileNav';
+export { InstallButton } from './InstallButton';
