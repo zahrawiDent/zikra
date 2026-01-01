@@ -1,6 +1,10 @@
 // Reactive TinyBase hooks for SolidJS
 import { createSignal, createEffect, onCleanup, Accessor, createMemo, on } from 'solid-js';
-import { store, rowToResource, rowToNote, rowToTopic, parseTopicIds, Resource, Note, Topic } from './schema';
+import { 
+  store, rowToResource, rowToNote, rowToTopic, rowToCategory, 
+  parseCategoryTopics, hasCategory, hasTopic, 
+  Resource, Note, Topic, Category, CategoryTopicMap 
+} from './schema';
 import { getThumbnailUrl, isLocalThumbnail } from './thumbnails';
 
 // ============ GENERIC HOOKS ============
@@ -67,6 +71,7 @@ function useRow<T>(
 export interface ResourceFilters {
   type?: string;
   status?: string;
+  categoryId?: string;
   topicId?: string;
   search?: string;
 }
@@ -91,8 +96,18 @@ export function useResources(filtersAccessor?: Accessor<ResourceFilters>): {
       results = results.filter(r => r.status === f.status);
     }
 
+    if (f?.categoryId) {
+      results = results.filter(r => {
+        const categoryTopics = parseCategoryTopics(r.categoryTopics);
+        return hasCategory(categoryTopics, f.categoryId!);
+      });
+    }
+
     if (f?.topicId) {
-      results = results.filter(r => parseTopicIds(r.topicIds).includes(f.topicId!));
+      results = results.filter(r => {
+        const categoryTopics = parseCategoryTopics(r.categoryTopics);
+        return hasTopic(categoryTopics, f.topicId!);
+      });
     }
 
     if (f?.search) {
@@ -145,19 +160,49 @@ export function useNotes(resourceId: Accessor<string | undefined>): {
   return { data: filteredNotes, loading: () => false };
 }
 
+// ============ CATEGORY HOOKS ============
+
+export function useCategories(): {
+  data: Accessor<Category[]>;
+  loading: Accessor<boolean>;
+} {
+  const categories = useTable('categories', rowToCategory);
+
+  const sortedCategories = createMemo(() => {
+    return [...categories()].sort((a, b) => a.order - b.order);
+  });
+
+  return { data: sortedCategories, loading: () => false };
+}
+
+export function useCategory(id: Accessor<string | undefined>): {
+  data: Accessor<Category | undefined>;
+  loading: Accessor<boolean>;
+} {
+  const data = useRow('categories', id, rowToCategory);
+  return { data, loading: () => false };
+}
+
 // ============ TOPIC HOOKS ============
 
-export function useTopics(): {
+export function useTopics(categoryIdAccessor?: Accessor<string | undefined>): {
   data: Accessor<Topic[]>;
   loading: Accessor<boolean>;
 } {
-  const topics = useTable('topics', rowToTopic);
+  const allTopics = useTable('topics', rowToTopic);
 
-  const sortedTopics = createMemo(() => {
-    return [...topics()].sort((a, b) => a.name.localeCompare(b.name));
+  const filteredTopics = createMemo(() => {
+    let topics = [...allTopics()];
+    
+    const categoryId = categoryIdAccessor?.();
+    if (categoryId) {
+      topics = topics.filter(t => t.categoryId === categoryId);
+    }
+    
+    return topics.sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  return { data: sortedTopics, loading: () => false };
+  return { data: filteredTopics, loading: () => false };
 }
 
 export function useTopic(id: Accessor<string | undefined>): {
@@ -168,12 +213,61 @@ export function useTopic(id: Accessor<string | undefined>): {
   return { data, loading: () => false };
 }
 
+/**
+ * Get topics grouped by category
+ */
+export function useTopicsByCategory(): Accessor<Map<string, Topic[]>> {
+  const { data: allTopics } = useTopics();
+  
+  return createMemo(() => {
+    const map = new Map<string, Topic[]>();
+    for (const topic of allTopics()) {
+      const existing = map.get(topic.categoryId) || [];
+      existing.push(topic);
+      map.set(topic.categoryId, existing);
+    }
+    return map;
+  });
+}
+
+/**
+ * Get resource counts by category and topic
+ */
+export function useCategoryTopicCounts(): Accessor<{
+  byCategory: Map<string, number>;
+  byTopic: Map<string, number>;
+}> {
+  const allResources = useTable('resources', rowToResource);
+  
+  return createMemo(() => {
+    const byCategory = new Map<string, number>();
+    const byTopic = new Map<string, number>();
+    
+    for (const resource of allResources()) {
+      const categoryTopics = parseCategoryTopics(resource.categoryTopics);
+      
+      for (const [categoryId, topicIds] of Object.entries(categoryTopics)) {
+        // Count category
+        byCategory.set(categoryId, (byCategory.get(categoryId) || 0) + 1);
+        
+        // Count topics
+        for (const topicId of topicIds) {
+          byTopic.set(topicId, (byTopic.get(topicId) || 0) + 1);
+        }
+      }
+    }
+    
+    return { byCategory, byTopic };
+  });
+}
+
 // ============ STATS HOOK ============
 
 export function useStats(): {
   data: Accessor<{
     resources: number;
     notes: number;
+    categories: number;
     topics: number;
     byStatus: {
       'to-study': number;
@@ -185,11 +279,13 @@ export function useStats(): {
 } {
   const resources = useTable('resources', rowToResource);
   const notes = useTable('notes', rowToNote);
+  const categories = useTable('categories', rowToCategory);
   const topics = useTable('topics', rowToTopic);
 
   const stats = createMemo(() => ({
     resources: resources().length,
     notes: notes().length,
+    categories: categories().length,
     topics: topics().length,
     byStatus: {
       'to-study': resources().filter(r => r.status === 'to-study').length,

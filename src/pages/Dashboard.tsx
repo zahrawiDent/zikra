@@ -1,18 +1,18 @@
 import { type Component, For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
-import { useResources, useStats, useTopics } from '../lib/db/hooks';
+import { useResources, useStats, useCategories } from '../lib/db/hooks';
 import { ResourceCard } from '../components';
-import { BookOpen, FileText, Tag, TrendingUp } from 'lucide-solid';
+import { BookOpen, FileText, FolderOpen, TrendingUp } from 'lucide-solid';
 
 export const Dashboard: Component = () => {
   const { data: stats } = useStats();
   const { data: recentResources } = useResources();
-  const { data: topics } = useTopics();
+  const { data: categories } = useCategories();
 
   const statCards = () => [
     { label: 'Total Resources', value: stats()?.resources || 0, icon: BookOpen, color: 'blue' },
     { label: 'Notes', value: stats()?.notes || 0, icon: FileText, color: 'purple' },
-    { label: 'Topics', value: stats()?.topics || 0, icon: Tag, color: 'green' },
+    { label: 'Categories', value: stats()?.categories || 0, icon: FolderOpen, color: 'green' },
     { label: 'Completed', value: stats()?.byStatus.completed || 0, icon: TrendingUp, color: 'emerald' },
   ];
 
@@ -100,7 +100,7 @@ export const Dashboard: Component = () => {
           <div class="space-y-3">
             <For each={recentResources()?.slice(0, 5)}>
               {(resource) => (
-                <ResourceCard resource={resource} topics={topics() || []} />
+                <ResourceCard resource={resource} categories={categories() || []} />
               )}
             </For>
           </div>

@@ -2,7 +2,7 @@ import { Suspense, type Component, createSignal, onMount, Show } from 'solid-js'
 import { useSearchParams } from '@solidjs/router';
 import { Sidebar, AddResourceModal } from './components';
 import { initializePlugins } from './lib/plugins';
-import { seedDefaultTopics } from './lib/db/actions';
+import { seedDefaultCategories } from './lib/db/actions';
 import { initializeStore } from './lib/db/schema';
 
 // Initialize plugins on app load
@@ -32,8 +32,8 @@ const App: Component<{ children: Element }> = (props) => {
   onMount(async () => {
     // Initialize TinyBase store with IndexedDB persistence
     await initializeStore();
-    // Seed default topics on first run (sync operation)
-    seedDefaultTopics();
+    // Seed default categories and topics on first run (sync operation)
+    seedDefaultCategories();
     setDbReady(true);
 
     // Check for extension data in URL params

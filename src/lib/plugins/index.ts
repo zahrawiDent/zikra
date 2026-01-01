@@ -27,21 +27,4 @@ export function initializePlugins(): void {
   initializeDetectors();
 }
 
-// Legacy: Auto-detect plugin from URL (deprecated, use detectionEngine.detect instead)
-export function detectPluginFromUrl(url: string): string | null {
-  const plugins = pluginRegistry.getByInputType('url');
-  
-  // Check YouTube first (most specific)
-  if (youtubePlugin.validate(url)) {
-    return 'youtube';
-  }
-  
-  // Fall back to article for any valid URL
-  for (const plugin of plugins) {
-    if (plugin.id !== 'youtube' && plugin.validate(url)) {
-      return plugin.id;
-    }
-  }
-  
-  return null;
-}
+

@@ -7,11 +7,12 @@
  * - Manual mode: User selects type and enters details manually
  * - Smart detection badges for ambiguous inputs
  * - Streamlined single-input flow
+ * - Hierarchical category/topic selection
  */
 
 import { type Component, createSignal, createEffect, Show, For } from 'solid-js';
 import { Modal, Button, Input, Textarea, ThumbnailInput } from './ui';
-import { TopicSelector } from './TopicSelector';
+import { CategoryTopicSelector } from './CategoryTopicSelector';
 import { AutoDetectInput } from './AutoDetectInput';
 import { 
   pluginRegistry, 
@@ -22,6 +23,7 @@ import {
 import { createResource } from '../lib/db/actions';
 import { downloadAndSaveThumbnail, isLocalThumbnail } from '../lib/db/thumbnails';
 import { useDetection } from '../lib/hooks';
+import type { CategoryTopicMap } from '../lib/db/schema';
 import { 
   LoaderCircle, 
   Check, 
@@ -65,7 +67,7 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
   // Data state
   const [searchResults, setSearchResults] = createSignal<SearchResult[]>([]);
   const [fetchedData, setFetchedData] = createSignal<FetchedResourceData | null>(null);
-  const [selectedTopics, setSelectedTopics] = createSignal<string[]>([]);
+  const [selectedCategoryTopics, setSelectedCategoryTopics] = createSignal<CategoryTopicMap>({});
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   
@@ -93,7 +95,7 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
       detection.clear();
       setSearchResults([]);
       setFetchedData(null);
-      setSelectedTopics([]);
+      setSelectedCategoryTopics({});
       setError(null);
       setLoading(false);
       // Reset manual entry fields
@@ -235,7 +237,7 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
         url: data.url,
         thumbnail: thumbnailUrl,
         metadata: data.metadata,
-        topicIds: selectedTopics(),
+        categoryTopics: selectedCategoryTopics(),
         status: 'to-study',
       });
       props.onClose();
@@ -270,7 +272,7 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
         url: manualUrl().trim(),
         thumbnail: thumbnailUrl,
         metadata: {},
-        topicIds: selectedTopics(),
+        categoryTopics: selectedCategoryTopics(),
         status: 'to-study',
       });
       props.onClose();
@@ -547,7 +549,10 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
             </div>
           </Show>
           
-          <TopicSelector selected={selectedTopics()} onChange={setSelectedTopics} />
+          <CategoryTopicSelector 
+            selected={selectedCategoryTopics()} 
+            onChange={setSelectedCategoryTopics} 
+          />
           
           <Show when={error()}>
             <p class="text-sm text-red-600">{error()}</p>
@@ -641,7 +646,10 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
               </div>
             </div>
             
-            <TopicSelector selected={selectedTopics()} onChange={setSelectedTopics} />
+            <CategoryTopicSelector 
+              selected={selectedCategoryTopics()} 
+              onChange={setSelectedCategoryTopics} 
+            />
           </div>
 
           <Show when={error()}>

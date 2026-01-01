@@ -1,22 +1,25 @@
-import { type Component, For, Show } from 'solid-js';
+import { type Component, For, Show, createMemo } from 'solid-js';
 import { A } from '@solidjs/router';
-import type { Resource, Topic } from '../lib/db/schema';
-import { parseTopicIds } from '../lib/db/schema';
+import type { Resource, Category } from '../lib/db/schema';
+import { parseCategoryTopics } from '../lib/db/schema';
 import { pluginRegistry } from '../lib/plugins';
 import { Badge, ThumbnailImage } from './ui';
 import { ExternalLink, Clock, CheckCircle, BookOpen } from 'lucide-solid';
 
 interface ResourceCardProps {
   resource: Resource;
-  topics: Topic[];
+  categories: Category[];
 }
 
 export const ResourceCard: Component<ResourceCardProps> = (props) => {
   const plugin = () => pluginRegistry.get(props.resource.type);
-  const resourceTopics = () => {
-    const topicIds = parseTopicIds(props.resource.topicIds);
-    return props.topics.filter(t => topicIds.includes(t.id));
-  };
+  
+  // Get categories this resource belongs to
+  const resourceCategories = createMemo(() => {
+    const categoryTopics = parseCategoryTopics(props.resource.categoryTopics);
+    const categoryIds = Object.keys(categoryTopics);
+    return props.categories.filter(c => categoryIds.includes(c.id));
+  });
 
   const statusIcon = () => {
     switch (props.resource.status) {
@@ -89,16 +92,25 @@ export const ResourceCard: Component<ResourceCardProps> = (props) => {
             <StatusIcon class={`w-5 h-5 flex-shrink-0 ${statusColor()}`} />
           </div>
           
-          {/* Topics */}
-          <Show when={resourceTopics().length > 0}>
+          {/* Categories */}
+          <Show when={resourceCategories().length > 0}>
             <div class="flex flex-wrap gap-1 mt-2">
-              <For each={resourceTopics().slice(0, 3)}>
-                {(topic) => (
-                  <Badge color={topic.color}>{topic.name}</Badge>
+              <For each={resourceCategories().slice(0, 3)}>
+                {(category) => (
+                  <span 
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                    style={{ 
+                      'background-color': `${category.color}15`,
+                      color: category.color 
+                    }}
+                  >
+                    <span>{category.icon}</span>
+                    <span>{category.name}</span>
+                  </span>
                 )}
               </For>
-              <Show when={resourceTopics().length > 3}>
-                <Badge>+{resourceTopics().length - 3}</Badge>
+              <Show when={resourceCategories().length > 3}>
+                <Badge>+{resourceCategories().length - 3}</Badge>
               </Show>
             </div>
           </Show>

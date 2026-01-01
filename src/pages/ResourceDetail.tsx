@@ -1,12 +1,12 @@
-import { type Component, For, Show, createSignal } from 'solid-js';
+import { type Component, For, Show, createSignal, createMemo } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
 import { useResource, useNotes, useThumbnail } from '../lib/db/hooks';
 import { updateResourceStatus, deleteResource, createNote, deleteNote, updateNote } from '../lib/db/actions';
 import { pluginRegistry } from '../lib/plugins';
 import { Button, Input, Textarea, ThumbnailInput, ConfirmDialog } from '../components/ui';
-import { TopicSelector } from '../components';
+import { ResourceCategoryDisplay } from '../components';
 import { updateResource } from '../lib/db/actions';
-import { parseTopicIds } from '../lib/db/schema';
+import { parseCategoryTopics, CategoryTopicMap } from '../lib/db/schema';
 import {
   ArrowLeft, ExternalLink, Trash2, Clock, BookOpen, CircleCheck,
   Plus, Lightbulb, CircleHelp, TriangleAlert, Zap, FileText, Pencil, X, Check, Star
@@ -46,10 +46,10 @@ export const ResourceDetail: Component = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
 
   const plugin = () => resource() ? pluginRegistry.get(resource()!.type) : null;
-  const resourceTopicIds = () => {
-    if (!resource()) return [];
-    return parseTopicIds(resource()!.topicIds);
-  };
+  const resourceCategoryTopics = createMemo(() => {
+    if (!resource()) return {};
+    return parseCategoryTopics(resource()!.categoryTopics);
+  });
   
   // Resolve thumbnail URL (handles local thumbnails)
   const thumbnailUrl = useThumbnail(() => resource()?.thumbnail);
@@ -122,9 +122,9 @@ export const ResourceDetail: Component = () => {
     setShowAddNote(false);
   };
 
-  const handleTopicsChange = (topicIds: string[]) => {
+  const handleCategoryTopicsChange = (categoryTopics: CategoryTopicMap) => {
     if (!resource()) return;
-    updateResource(resource()!.id, { topicIds });
+    updateResource(resource()!.id, { categoryTopics });
   };
 
   const handleRatingChange = (rating: number) => {
@@ -302,11 +302,11 @@ export const ResourceDetail: Component = () => {
           </div>
         </div>
 
-        {/* Topics */}
+        {/* Categories & Topics */}
         <div class="bg-white border rounded-xl p-6">
-          <TopicSelector
-            selected={resourceTopicIds()}
-            onChange={handleTopicsChange}
+          <ResourceCategoryDisplay
+            categoryTopics={resourceCategoryTopics()}
+            onChange={handleCategoryTopicsChange}
           />
         </div>
 

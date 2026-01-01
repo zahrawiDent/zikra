@@ -1,6 +1,6 @@
 // Database CRUD actions using TinyBase
 import { v4 as uuid } from 'uuid';
-import { store, Resource, Note, Topic, parseTopicIds } from './schema';
+import { store, Resource, Note, Topic, Category, CategoryTopicMap, parseCategoryTopics } from './schema';
 
 // ============ RESOURCE ACTIONS ============
 
@@ -11,7 +11,7 @@ export interface CreateResourceData {
   url?: string;
   thumbnail?: string;
   metadata?: Record<string, unknown>;
-  topicIds?: string[];
+  categoryTopics?: CategoryTopicMap;
   status?: Resource['status'];
   progress?: number;
   rating?: number;
@@ -29,7 +29,7 @@ export function createResource(data: CreateResourceData): Resource {
     url: data.url || '',
     thumbnail: data.thumbnail || '',
     metadata: JSON.stringify(data.metadata || {}),
-    topicIds: JSON.stringify(data.topicIds || []),
+    categoryTopics: JSON.stringify(data.categoryTopics || {}),
     status: data.status || 'to-study',
     progress: data.progress || 0,
     rating: data.rating || 0,
@@ -57,7 +57,7 @@ export function updateResource(
   if (data.url !== undefined) updates.url = data.url;
   if (data.thumbnail !== undefined) updates.thumbnail = data.thumbnail;
   if (data.metadata !== undefined) updates.metadata = JSON.stringify(data.metadata);
-  if (data.topicIds !== undefined) updates.topicIds = JSON.stringify(data.topicIds);
+  if (data.categoryTopics !== undefined) updates.categoryTopics = JSON.stringify(data.categoryTopics);
   if (data.status !== undefined) updates.status = data.status;
   if (data.progress !== undefined) updates.progress = data.progress;
   if (data.rating !== undefined) updates.rating = data.rating;
@@ -86,30 +86,79 @@ export function updateResourceStatus(
   updateResource(id, { status, progress });
 }
 
-export function addTopicToResource(resourceId: string, topicId: string): void {
+/**
+ * Add a topic to a resource under a specific category
+ */
+export function addTopicToResource(resourceId: string, categoryId: string, topicId: string): void {
   const row = store.getRow('resources', resourceId);
   if (!row) return;
 
-  const topicIds = parseTopicIds((row.topicIds as string) || '[]');
-  if (!topicIds.includes(topicId)) {
-    topicIds.push(topicId);
+  const categoryTopics = parseCategoryTopics((row.categoryTopics as string) || '{}');
+  if (!categoryTopics[categoryId]) {
+    categoryTopics[categoryId] = [];
+  }
+  if (!categoryTopics[categoryId].includes(topicId)) {
+    categoryTopics[categoryId].push(topicId);
     store.setPartialRow('resources', resourceId, {
-      topicIds: JSON.stringify(topicIds),
+      categoryTopics: JSON.stringify(categoryTopics),
       updatedAt: new Date().toISOString(),
     });
   }
 }
 
-export function removeTopicFromResource(resourceId: string, topicId: string): void {
+/**
+ * Remove a topic from a resource under a specific category
+ */
+export function removeTopicFromResource(resourceId: string, categoryId: string, topicId: string): void {
   const row = store.getRow('resources', resourceId);
   if (!row) return;
 
-  const topicIds = parseTopicIds((row.topicIds as string) || '[]');
-  const filtered = topicIds.filter(id => id !== topicId);
-  store.setPartialRow('resources', resourceId, {
-    topicIds: JSON.stringify(filtered),
-    updatedAt: new Date().toISOString(),
-  });
+  const categoryTopics = parseCategoryTopics((row.categoryTopics as string) || '{}');
+  if (categoryTopics[categoryId]) {
+    categoryTopics[categoryId] = categoryTopics[categoryId].filter(id => id !== topicId);
+    // Remove category if no topics left
+    if (categoryTopics[categoryId].length === 0) {
+      delete categoryTopics[categoryId];
+    }
+    store.setPartialRow('resources', resourceId, {
+      categoryTopics: JSON.stringify(categoryTopics),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+}
+
+/**
+ * Add a category to a resource (without any topics)
+ */
+export function addCategoryToResource(resourceId: string, categoryId: string): void {
+  const row = store.getRow('resources', resourceId);
+  if (!row) return;
+
+  const categoryTopics = parseCategoryTopics((row.categoryTopics as string) || '{}');
+  if (!categoryTopics[categoryId]) {
+    categoryTopics[categoryId] = [];
+    store.setPartialRow('resources', resourceId, {
+      categoryTopics: JSON.stringify(categoryTopics),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+}
+
+/**
+ * Remove a category (and all its topics) from a resource
+ */
+export function removeCategoryFromResource(resourceId: string, categoryId: string): void {
+  const row = store.getRow('resources', resourceId);
+  if (!row) return;
+
+  const categoryTopics = parseCategoryTopics((row.categoryTopics as string) || '{}');
+  if (categoryTopics[categoryId]) {
+    delete categoryTopics[categoryId];
+    store.setPartialRow('resources', resourceId, {
+      categoryTopics: JSON.stringify(categoryTopics),
+      updatedAt: new Date().toISOString(),
+    });
+  }
 }
 
 // ============ NOTE ACTIONS ============
@@ -158,23 +207,110 @@ export function deleteNote(id: string): void {
   store.delRow('notes', id);
 }
 
+// ============ CATEGORY ACTIONS ============
+
+export interface CreateCategoryData {
+  name: string;
+  color: string;
+  icon?: string;
+  order?: number;
+}
+
+export function createCategory(data: CreateCategoryData): Category {
+  const id = uuid();
+  const now = new Date().toISOString();
+
+  // Get max order for new categories
+  const categoriesTable = store.getTable('categories') || {};
+  const maxOrder = Object.values(categoriesTable).reduce((max, cat) => {
+    const order = (cat as Record<string, unknown>).order as number || 0;
+    return Math.max(max, order);
+  }, -1);
+
+  const category: Category = {
+    id,
+    name: data.name,
+    color: data.color,
+    icon: data.icon || '📁',
+    order: data.order ?? maxOrder + 1,
+    createdAt: now,
+  };
+
+  store.setRow('categories', id, category as unknown as Record<string, string | number | boolean>);
+  return category;
+}
+
+export function updateCategory(
+  id: string,
+  data: Partial<Pick<Category, 'name' | 'color' | 'icon' | 'order'>>
+): void {
+  const existing = store.getRow('categories', id);
+  if (!existing) return;
+
+  const updates: Record<string, string | number> = {};
+
+  if (data.name !== undefined) updates.name = data.name;
+  if (data.color !== undefined) updates.color = data.color;
+  if (data.icon !== undefined) updates.icon = data.icon;
+  if (data.order !== undefined) updates.order = data.order;
+
+  if (Object.keys(updates).length > 0) {
+    store.setPartialRow('categories', id, updates);
+  }
+}
+
+export function deleteCategory(id: string): void {
+  // First, delete all topics that belong to this category
+  const topicsTable = store.getTable('topics') || {};
+  const topicsToDelete: string[] = [];
+  Object.entries(topicsTable).forEach(([topicId, topic]) => {
+    if ((topic as Record<string, unknown>).categoryId === id) {
+      topicsToDelete.push(topicId);
+    }
+  });
+  
+  // Delete topics
+  topicsToDelete.forEach(topicId => {
+    store.delRow('topics', topicId);
+  });
+
+  // Remove category from all resources
+  const resourcesTable = store.getTable('resources') || {};
+  Object.entries(resourcesTable).forEach(([resourceId, resource]) => {
+    const categoryTopics = parseCategoryTopics((resource as Record<string, unknown>).categoryTopics as string || '{}');
+    if (categoryTopics[id]) {
+      delete categoryTopics[id];
+      store.setCell('resources', resourceId, 'categoryTopics', JSON.stringify(categoryTopics));
+    }
+  });
+
+  store.delRow('categories', id);
+}
+
 // ============ TOPIC ACTIONS ============
 
 export interface CreateTopicData {
   name: string;
-  color: string;
-  parentId?: string;
+  categoryId: string;
+  color?: string;
 }
 
 export function createTopic(data: CreateTopicData): Topic {
   const id = uuid();
   const now = new Date().toISOString();
 
+  // If no color provided, inherit from category
+  let color = data.color;
+  if (!color) {
+    const category = store.getRow('categories', data.categoryId);
+    color = (category?.color as string) || '#3b82f6';
+  }
+
   const topic: Topic = {
     id,
     name: data.name,
-    color: data.color,
-    parentId: data.parentId || '',
+    categoryId: data.categoryId,
+    color,
     createdAt: now,
   };
 
@@ -184,7 +320,7 @@ export function createTopic(data: CreateTopicData): Topic {
 
 export function updateTopic(
   id: string,
-  data: Partial<Pick<Topic, 'name' | 'color' | 'parentId'>>
+  data: Partial<Pick<Topic, 'name' | 'color' | 'categoryId'>>
 ): void {
   const existing = store.getRow('topics', id);
   if (!existing) return;
@@ -193,7 +329,7 @@ export function updateTopic(
 
   if (data.name !== undefined) updates.name = data.name;
   if (data.color !== undefined) updates.color = data.color;
-  if (data.parentId !== undefined) updates.parentId = data.parentId;
+  if (data.categoryId !== undefined) updates.categoryId = data.categoryId;
 
   if (Object.keys(updates).length > 0) {
     store.setPartialRow('topics', id, updates);
@@ -201,13 +337,29 @@ export function updateTopic(
 }
 
 export function deleteTopic(id: string): void {
-  // Remove topic from all resources first
+  // Get the topic to find its category
+  const topic = store.getRow('topics', id);
+  const categoryId = topic?.categoryId as string;
+
+  // Remove topic from all resources
   const resourcesTable = store.getTable('resources') || {};
   Object.entries(resourcesTable).forEach(([resourceId, resource]) => {
-    const topicIds = parseTopicIds((resource as Record<string, unknown>).topicIds as string || '[]');
-    if (topicIds.includes(id)) {
-      const filtered = topicIds.filter(tid => tid !== id);
-      store.setCell('resources', resourceId, 'topicIds', JSON.stringify(filtered));
+    const categoryTopics = parseCategoryTopics((resource as Record<string, unknown>).categoryTopics as string || '{}');
+    
+    // Check all categories for this topic
+    let modified = false;
+    Object.keys(categoryTopics).forEach(catId => {
+      if (categoryTopics[catId].includes(id)) {
+        categoryTopics[catId] = categoryTopics[catId].filter(tid => tid !== id);
+        if (categoryTopics[catId].length === 0) {
+          delete categoryTopics[catId];
+        }
+        modified = true;
+      }
+    });
+    
+    if (modified) {
+      store.setCell('resources', resourceId, 'categoryTopics', JSON.stringify(categoryTopics));
     }
   });
 
@@ -216,24 +368,77 @@ export function deleteTopic(id: string): void {
 
 // ============ SEED DATA ============
 
-export function seedDefaultTopics(): void {
-  const topicsTable = store.getTable('topics') || {};
-  if (Object.keys(topicsTable).length > 0) return;
+export function seedDefaultCategories(): void {
+  const categoriesTable = store.getTable('categories') || {};
+  if (Object.keys(categoriesTable).length > 0) return;
 
-  const defaultTopics = [
-    { name: 'Endodontics', color: '#ef4444' },
-    { name: 'Prosthodontics', color: '#f97316' },
-    { name: 'Periodontics', color: '#eab308' },
-    { name: 'Oral Surgery', color: '#22c55e' },
-    { name: 'Orthodontics', color: '#06b6d4' },
-    { name: 'Restorative', color: '#3b82f6' },
-    { name: 'Pediatric Dentistry', color: '#8b5cf6' },
-    { name: 'Oral Pathology', color: '#ec4899' },
-    { name: 'Dental Materials', color: '#6366f1' },
-    { name: 'Anatomy', color: '#14b8a6' },
+  const defaultCategories: Array<{ name: string; color: string; icon: string; topics: string[] }> = [
+    { 
+      name: 'Operative', 
+      color: '#3b82f6', 
+      icon: '🦷',
+      topics: ['Composite', 'Amalgam', 'Caries', 'Adhesion', 'Cavity Preparation']
+    },
+    { 
+      name: 'Endodontics', 
+      color: '#ef4444', 
+      icon: '🔬',
+      topics: ['Working Length', 'Shaping', 'Obturation', 'Irrigation', 'Access Cavity']
+    },
+    { 
+      name: 'Prosthodontics', 
+      color: '#f97316', 
+      icon: '👑',
+      topics: ['Fixed Prosthesis', 'Removable Prosthesis', 'Implants', 'Occlusion', 'Impressions']
+    },
+    { 
+      name: 'Periodontics', 
+      color: '#22c55e', 
+      icon: '🩺',
+      topics: ['Scaling', 'Root Planing', 'Flap Surgery', 'Regeneration', 'Maintenance']
+    },
+    { 
+      name: 'Oral Surgery', 
+      color: '#8b5cf6', 
+      icon: '⚕️',
+      topics: ['Extractions', 'Impactions', 'Suturing', 'Local Anesthesia', 'Complications']
+    },
+    { 
+      name: 'Orthodontics', 
+      color: '#06b6d4', 
+      icon: '📐',
+      topics: ['Brackets', 'Aligners', 'Retention', 'Space Management', 'Growth Modification']
+    },
+    { 
+      name: 'Pediatric Dentistry', 
+      color: '#ec4899', 
+      icon: '👶',
+      topics: ['Behavior Management', 'Pulp Therapy', 'Space Maintainers', 'Prevention']
+    },
+    { 
+      name: 'Oral Pathology', 
+      color: '#eab308', 
+      icon: '🔍',
+      topics: ['Lesions', 'Cysts', 'Tumors', 'Infections', 'Differential Diagnosis']
+    },
   ];
 
-  for (const topic of defaultTopics) {
-    createTopic(topic);
+  for (let i = 0; i < defaultCategories.length; i++) {
+    const catData = defaultCategories[i];
+    const category = createCategory({ 
+      name: catData.name, 
+      color: catData.color, 
+      icon: catData.icon,
+      order: i 
+    });
+    
+    // Create topics for this category
+    for (const topicName of catData.topics) {
+      createTopic({ 
+        name: topicName, 
+        categoryId: category.id,
+        color: catData.color 
+      });
+    }
   }
 }

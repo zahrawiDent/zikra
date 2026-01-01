@@ -4,6 +4,42 @@ import { createIndexedDbPersister, IndexedDbPersister } from 'tinybase/persister
 
 // ============ TYPE DEFINITIONS ============
 
+/**
+ * Category represents a high-level dental specialty or domain
+ * Examples: Operative, Endodontics, Prosthodontics, Periodontics
+ */
+export interface Category {
+  id: string;
+  name: string;
+  color: string;
+  icon: string; // emoji or icon name
+  order: number; // for custom sorting
+  createdAt: string;
+}
+
+/**
+ * Topic belongs to a Category and represents a specific subject
+ * Examples: Operative > Composite, Caries; Endodontics > Working Length, Shaping
+ */
+export interface Topic {
+  id: string;
+  name: string;
+  categoryId: string; // parent category
+  color: string; // inherits from category if not set
+  createdAt: string;
+}
+
+/**
+ * CategoryTopicMapping stores which topics under which categories a resource belongs to
+ * This allows a resource to belong to multiple categories, each with different topics
+ * Example: A video might be tagged as:
+ *   - Operative: [composite, adhesion]
+ *   - Endodontics: [access-cavity]
+ */
+export interface CategoryTopicMap {
+  [categoryId: string]: string[]; // categoryId -> topicIds[]
+}
+
 export interface Resource {
   id: string;
   type: string;
@@ -12,7 +48,7 @@ export interface Resource {
   url: string;
   thumbnail: string;
   metadata: string; // JSON stringified
-  topicIds: string; // JSON stringified array
+  categoryTopics: string; // JSON stringified CategoryTopicMap
   status: 'to-study' | 'in-progress' | 'completed';
   progress: number;
   rating: number; // 0-5 stars (0 = unrated)
@@ -27,14 +63,6 @@ export interface Note {
   content: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Topic {
-  id: string;
-  name: string;
-  color: string;
-  parentId: string;
-  createdAt: string;
 }
 
 // ============ STORE CREATION ============
@@ -70,7 +98,7 @@ export function rowToResource(rowId: string, row: Record<string, unknown>): Reso
     url: (row.url as string) || '',
     thumbnail: (row.thumbnail as string) || '',
     metadata: (row.metadata as string) || '{}',
-    topicIds: (row.topicIds as string) || '[]',
+    categoryTopics: (row.categoryTopics as string) || '{}',
     status: (row.status as Resource['status']) || 'to-study',
     progress: (row.progress as number) || 0,
     rating: (row.rating as number) || 0,
@@ -90,23 +118,73 @@ export function rowToNote(rowId: string, row: Record<string, unknown>): Note {
   };
 }
 
-export function rowToTopic(rowId: string, row: Record<string, unknown>): Topic {
+export function rowToCategory(rowId: string, row: Record<string, unknown>): Category {
   return {
     id: rowId,
     name: (row.name as string) || '',
     color: (row.color as string) || '#3b82f6',
-    parentId: (row.parentId as string) || '',
+    icon: (row.icon as string) || '📁',
+    order: (row.order as number) || 0,
     createdAt: (row.createdAt as string) || '',
   };
 }
 
-// Parse JSON fields safely
-export function parseTopicIds(topicIdsJson: string): string[] {
+export function rowToTopic(rowId: string, row: Record<string, unknown>): Topic {
+  return {
+    id: rowId,
+    name: (row.name as string) || '',
+    categoryId: (row.categoryId as string) || '',
+    color: (row.color as string) || '#3b82f6',
+    createdAt: (row.createdAt as string) || '',
+  };
+}
+
+// ============ JSON PARSING HELPERS ============
+
+/**
+ * Parse categoryTopics JSON to CategoryTopicMap
+ */
+export function parseCategoryTopics(json: string): CategoryTopicMap {
   try {
-    return JSON.parse(topicIdsJson) || [];
+    return JSON.parse(json) || {};
   } catch {
-    return [];
+    return {};
   }
+}
+
+/**
+ * Get all topic IDs from a CategoryTopicMap (flattened)
+ */
+export function getAllTopicIds(categoryTopics: CategoryTopicMap): string[] {
+  return Object.values(categoryTopics).flat();
+}
+
+/**
+ * Get all category IDs from a CategoryTopicMap
+ */
+export function getCategoryIds(categoryTopics: CategoryTopicMap): string[] {
+  return Object.keys(categoryTopics);
+}
+
+/**
+ * Check if resource belongs to a specific category
+ */
+export function hasCategory(categoryTopics: CategoryTopicMap, categoryId: string): boolean {
+  return categoryId in categoryTopics;
+}
+
+/**
+ * Check if resource has a specific topic
+ */
+export function hasTopic(categoryTopics: CategoryTopicMap, topicId: string): boolean {
+  return Object.values(categoryTopics).some(topics => topics.includes(topicId));
+}
+
+/**
+ * Check if resource has a specific topic under a specific category
+ */
+export function hasTopicInCategory(categoryTopics: CategoryTopicMap, categoryId: string, topicId: string): boolean {
+  return categoryTopics[categoryId]?.includes(topicId) || false;
 }
 
 export function parseMetadata(metadataJson: string): Record<string, unknown> {
