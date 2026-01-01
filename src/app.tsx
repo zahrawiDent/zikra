@@ -1,4 +1,4 @@
-import { Suspense, type Component, createSignal, onMount, Show } from 'solid-js';
+import { Suspense, type Component, createSignal, onMount, Show, createEffect } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import { Sidebar, AddResourceModal } from './components';
 import { MobileBottomNav, MobileDrawer, FloatingActionButton } from './components/MobileNav';
@@ -37,8 +37,10 @@ const App: Component<{ children: Element }> = (props) => {
     // Seed default categories and topics on first run (sync operation)
     seedDefaultCategories();
     setDbReady(true);
+  });
 
-    // Check for extension data in URL params
+  // Watch for add-resource action in URL params (from extension or share target)
+  createEffect(() => {
     if (searchParams.action === 'add-resource' && searchParams.url) {
       setExtensionData({
         url: searchParams.url as string,
