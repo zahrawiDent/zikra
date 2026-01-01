@@ -1,6 +1,71 @@
 // Database CRUD actions using TinyBase
 import { v4 as uuid } from 'uuid';
-import { store, Resource, Note, Topic, Category, CategoryTopicMap, parseCategoryTopics } from './schema';
+import { store, Resource, Note, Topic, Category, CategoryTopicMap, parseCategoryTopics, rowToResource } from './schema';
+
+// ============ URL NORMALIZATION ============
+
+/**
+ * Normalize a URL for comparison purposes
+ * - Removes protocol (http/https)
+ * - Removes www prefix
+ * - Removes trailing slashes
+ * - Normalizes YouTube URLs to a consistent format
+ * - Lowercases the URL
+ */
+export function normalizeUrl(url: string): string {
+  if (!url) return '';
+  
+  let normalized = url.trim().toLowerCase();
+  
+  // Remove protocol
+  normalized = normalized.replace(/^https?:\/\//, '');
+  
+  // Remove www prefix
+  normalized = normalized.replace(/^www\./, '');
+  
+  // Normalize YouTube URLs - extract video ID
+  const youtubePatterns = [
+    /^(?:m\.)?youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/i,
+    /^(?:m\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/i,
+    /^(?:m\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})/i,
+    /^youtu\.be\/([a-zA-Z0-9_-]{11})/i,
+    /^(?:m\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/i,
+  ];
+  
+  for (const pattern of youtubePatterns) {
+    const match = normalized.match(pattern);
+    if (match) {
+      return `youtube:${match[1]}`;
+    }
+  }
+  
+  // Remove trailing slashes and query params for general URLs
+  normalized = normalized.replace(/\/+$/, '');
+  
+  return normalized;
+}
+
+/**
+ * Find an existing resource by URL
+ * Returns the resource if found, null otherwise
+ */
+export function findResourceByUrl(url: string): Resource | null {
+  if (!url) return null;
+  
+  const normalizedInput = normalizeUrl(url);
+  if (!normalizedInput) return null;
+  
+  const resourcesTable = store.getTable('resources') || {};
+  
+  for (const [rowId, row] of Object.entries(resourcesTable)) {
+    const resourceUrl = (row as Record<string, unknown>).url as string;
+    if (resourceUrl && normalizeUrl(resourceUrl) === normalizedInput) {
+      return rowToResource(rowId, row as Record<string, unknown>);
+    }
+  }
+  
+  return null;
+}
 
 // ============ RESOURCE ACTIONS ============
 

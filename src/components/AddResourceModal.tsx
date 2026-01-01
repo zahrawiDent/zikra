@@ -11,6 +11,7 @@
  */
 
 import { type Component, createSignal, createEffect, Show, For } from 'solid-js';
+import { A } from '@solidjs/router';
 import { Modal, Button, Input, Textarea, ThumbnailInput } from './ui';
 import { CategoryTopicSelector } from './CategoryTopicSelector';
 import { AutoDetectInput } from './AutoDetectInput';
@@ -20,10 +21,10 @@ import {
   type FetchedResourceData,
   type DetectionResult 
 } from '../lib/plugins';
-import { createResource } from '../lib/db/actions';
+import { createResource, findResourceByUrl } from '../lib/db/actions';
 import { downloadAndSaveThumbnail, isLocalThumbnail } from '../lib/db/thumbnails';
 import { useDetection } from '../lib/hooks';
-import type { CategoryTopicMap } from '../lib/db/schema';
+import type { CategoryTopicMap, Resource } from '../lib/db/schema';
 import { 
   LoaderCircle, 
   Check, 
@@ -31,7 +32,9 @@ import {
   Wand2, 
   ArrowLeft,
   Sparkles,
-  Settings2
+  Settings2,
+  AlertTriangle,
+  ExternalLink
 } from 'lucide-solid';
 import type { ExtensionResourceData } from '../app';
 
@@ -77,6 +80,10 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
   const [manualUrl, setManualUrl] = createSignal('');
   const [manualThumbnail, setManualThumbnail] = createSignal('');
   const [manualType, setManualType] = createSignal<string>('article');
+  
+  // Duplicate detection state
+  const [duplicateResource, setDuplicateResource] = createSignal<Resource | null>(null);
+  const [ignoreDuplicate, setIgnoreDuplicate] = createSignal(false);
 
   const plugins = () => pluginRegistry.getAll();
   
@@ -104,6 +111,9 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
       setManualUrl('');
       setManualThumbnail('');
       setManualType('article');
+      // Reset duplicate state
+      setDuplicateResource(null);
+      setIgnoreDuplicate(false);
     } else if (props.initialData) {
       // Pre-fill from extension data (new format: just URL + hints)
       // Set the URL in detection input - this will auto-detect the type
@@ -132,6 +142,7 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
 
     setLoading(true);
     setError(null);
+    setDuplicateResource(null);
 
     try {
       const input = detection.input();
@@ -144,6 +155,16 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
           // Check if it looks like a bare video ID or needs protocol
           if (det.context?.metadata?.needsProtocol) {
             url = `https://${url}`;
+          }
+        }
+        
+        // Check for duplicate resource if not already ignored
+        if (!ignoreDuplicate()) {
+          const existing = findResourceByUrl(url);
+          if (existing) {
+            setDuplicateResource(existing);
+            setLoading(false);
+            return;
           }
         }
         
@@ -254,6 +275,16 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
       return;
     }
 
+    // Check for duplicate resource by URL if not already ignored
+    const url = manualUrl().trim();
+    if (url && !ignoreDuplicate()) {
+      const existing = findResourceByUrl(url);
+      if (existing) {
+        setDuplicateResource(existing);
+        return;
+      }
+    }
+
     setStep('saving');
     try {
       let thumbnailUrl = manualThumbnail();
@@ -359,6 +390,44 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
           
           <Show when={error()}>
             <p class="text-sm text-red-600">{error()}</p>
+          </Show>
+
+          {/* Duplicate resource warning */}
+          <Show when={duplicateResource()}>
+            <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <div class="flex items-start gap-3">
+                <AlertTriangle class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-amber-800">
+                    This resource already exists
+                  </p>
+                  <p class="text-sm text-amber-700 mt-1 line-clamp-2">
+                    "{duplicateResource()!.title}"
+                  </p>
+                  <div class="flex flex-wrap gap-2 mt-3">
+                    <A
+                      href={`/resource/${duplicateResource()!.id}`}
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+                      onClick={() => props.onClose()}
+                    >
+                      <ExternalLink class="w-3.5 h-3.5" />
+                      View Existing
+                    </A>
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors"
+                      onClick={() => {
+                        setIgnoreDuplicate(true);
+                        setDuplicateResource(null);
+                        handleAutoSubmit();
+                      }}
+                    >
+                      Add Anyway
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Show>
 
           {/* Quick type selection for text input */}
@@ -654,6 +723,43 @@ export const AddResourceModal: Component<AddResourceModalProps> = (props) => {
 
           <Show when={error()}>
             <p class="text-sm text-red-600">{error()}</p>
+          </Show>
+
+          {/* Duplicate resource warning */}
+          <Show when={duplicateResource()}>
+            <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <div class="flex items-start gap-3">
+                <AlertTriangle class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-amber-800">
+                    This resource already exists
+                  </p>
+                  <p class="text-sm text-amber-700 mt-1 line-clamp-2">
+                    "{duplicateResource()!.title}"
+                  </p>
+                  <div class="flex flex-wrap gap-2 mt-3">
+                    <A
+                      href={`/resource/${duplicateResource()!.id}`}
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+                      onClick={() => props.onClose()}
+                    >
+                      <ExternalLink class="w-3.5 h-3.5" />
+                      View Existing
+                    </A>
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors"
+                      onClick={() => {
+                        setIgnoreDuplicate(true);
+                        setDuplicateResource(null);
+                      }}
+                    >
+                      Add Anyway
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Show>
 
           <div class="flex justify-end gap-2 pt-4 border-t">
